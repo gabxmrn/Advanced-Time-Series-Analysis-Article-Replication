@@ -1,0 +1,21 @@
+# Data Selection Process
+
+## Time Series
+
+    - Annual
+    - from 1991 to 2019 (except climate series, starts from 1960 for MA)
+
+## Selected data
+
+    - Precipitation -> CRU 0.5-degree database, annual (mean) 
+    - Temperature -> CRU 0.5-degree database, annual (mean)
+    - GDP -> PWT table from 1990 to 2019 : Real GDP at constant 2017 national prices (in mil. 2017US$)
+    - Trade (for weight matrix) -> as in the article of Dees et al. source is Direction of Trade Statistics (IMF): https://data.imf.org/?sk=9d6028d4-f14a-464c-a2f2-59b2cd424b85&sid=1409151240976
+
+## Remarks
+
+    - For climate data, is not excatly the same, small variation around annual temperatures from table 1 page 9 (that goes to 2019 -> very weird to present this data, it comes from the country summary between 1991-2020 from the World Bank and not directly from their data)
+    - Did trade balance for argentina only to validate the method
+        - Sum import and exports of country i to country j for every year
+        - Divide the trade balance of year t by the sum of the bilateral trade of the country in the year
+        - Average accross all years
