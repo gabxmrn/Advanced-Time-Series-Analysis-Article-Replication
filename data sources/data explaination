@@ -15,7 +15,8 @@
 ## Remarks
 
     - For climate data, is not excatly the same, small variation around annual temperatures from table 1 page 9 (that goes to 2019 -> very weird to present this data, it comes from the country summary between 1991-2020 from the World Bank and not directly from their data)
-    - Did trade balance for argentina only to validate the method
+    - Method for weight matrix
         - Sum import and exports of country i to country j for every year
         - Divide the trade balance of year t by the sum of the bilateral trade of the country in the year
         - Average accross all years
+    - For Trade Balance, no data for Belgium prior to 1996 (included)
