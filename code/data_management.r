@@ -11,11 +11,13 @@ data_importation <- function(path, sheet_name) {
   #                            and columns years.
   # ==========================================
   library(readxl)
+
   df <- read_excel(path, sheet = sheet_name,
                    col_names = TRUE) # Import data from excel
   df <- as.data.frame(df) # Convert type to dataframe
   rownames(df) <- df[[1]] # Set index to country names
   df <- df[-1] # Delete column with country names
+
   return(df)
 }
 
@@ -29,7 +31,7 @@ climate_variable_treatment <- function(df) {
   #                and columns are years.
   # Returns: new dataframe containing adjusted values.
   # ==========================================
-  df_result <- data.frame(row.names = rownames(df))
+  df_result <- data.frame(row.names = rownames(df)) # Empty dataframe
 
   years <- as.numeric(colnames(df)) # Get possible years in the dataframe
 
@@ -38,6 +40,7 @@ climate_variable_treatment <- function(df) {
     # Compute start year for the moving average
     start_year <- year - 31
 
+    # Compute moving average
     if (start_year %in% years) {
       # Average on the last 30 years (ending at t-1)
       mov_av <- rowMeans(df[, which(years >= start_year & years < year)],
@@ -105,7 +108,7 @@ plot_series <- function(df, t_series, process) {
       )
   })
 
-  # Visualisation of all graphs
+  # Print graph grid with global title
   if (tolower(t_series) == "temperatures") {
     if (tolower(process) == "none") {
       grid_title <- textGrob("Average Yearly Temperature",
@@ -131,5 +134,5 @@ plot_series <- function(df, t_series, process) {
                              gp = gpar(fontsize = 16, fontface = "bold"))
     }
   }
-  grid.arrange(grobs = plots, ncol = 5, top =  grid_title)
+  grid.arrange(grobs = plots, ncol = 5, top =  grid_title) # Print graphs
 }

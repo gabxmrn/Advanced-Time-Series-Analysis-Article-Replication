@@ -43,26 +43,26 @@ kpss <- function(df, alpha, level_or_trend) {
     # Linear regression of the model
     if (level_or_trend == "trend") {
       t <- 1:n
-      m <- linear_reg(y = temp_df, x = t)
-      stat_table <- c(0.216, 0.176, 0.146, 0.119) # critical values
+      m <- linear_reg(y = temp_df, x = t) # linear regression with trend
+      stat_table <- c(0.216, 0.176, 0.146, 0.119) # Critical values
     } else {
-      m <- linear_reg(y = temp_df, x = 1)
-      stat_table <- c(0.739, 0.574, 0.463, 0.347) # critical values
+      m <- linear_reg(y = temp_df, x = 1) # Linear regression with constant
+      stat_table <- c(0.739, 0.574, 0.463, 0.347) # Critical values
     }
 
     res <- m$residuals # Residuals of model
 
     # Compute test statistic
-    s <- cumsum(res) # cumulative sum of residuals
-    eta <- sum(s^2) / (n^2) # partial sum
-    s2 <- sum(res^2) / n # average square residuals
+    s <- cumsum(res) # Cumulative sum of residuals
+    eta <- sum(s^2) / (n^2) # Partial sum
+    s2 <- sum(res^2) / n # Average square residuals
 
-    lm_stat <- eta / s2
+    lm_stat <- eta / s2  # Test statistic 
 
     # Compute p-value
     p_val <- approx(stat_table, tablep, lm_stat, rule = 2)$y
 
-    # Fill dataframe with pvalues and conclusion
+    # Fill dataframe with pvalues and test conclusion
     df_result[country, 1] <- round(p_val, 2)
 
     if (p_val < alpha) {
@@ -89,11 +89,9 @@ linear_reg <- function(y, x) {
   #           residuals: residuals of the model
   # ==========================================
 
-  # Check input parameters
-
   n <- length(y) # Length of y
 
-  # Regression y ~ 1
+  # Regression with constant
   if (length(x) == 1) {
 
     # Beta
@@ -111,6 +109,8 @@ linear_reg <- function(y, x) {
       fitted_values = fitted_values,
       residuals = residuals
     ))
+
+    # Complete regression
   } else {
 
     # Add constant to x
