@@ -1,6 +1,6 @@
 source("code/utils/data_importation.R")
 source("code/utils/stationnarity.R")
-source("code/models/GVARX.R")
+source("code/models/SVARX.R")
 
 ########## Data Importation ##########
 
@@ -19,6 +19,9 @@ precipitations <- climate_variable_treatment(precipitations_i)
 gdp <- t(apply(log(gdp_i), 1, diff))
 gdp <- as.data.frame(gdp[, as.character(1991:2019)])
 
+# Foreign exogenous variable computation
+foreign_var <- as.matrix(weight_maxtrix) %*% as.matrix(gdp)
+
 ########## Plotting series ##########
 # plot_series(temperatures, "temperatures", "done")
 # plot_series(precipitations, "precipitations", "done")
@@ -32,4 +35,4 @@ gdp <- as.data.frame(gdp[, as.character(1991:2019)])
 #     au seuil de 1% (avec constante, sans tendance)
 
 ########## GVARX Model ##########
-gvarx_main(temperatures, precipitations, gdp, trade_balance)
+svarx_main(temperatures, precipitations, gdp, foreign_var)
