@@ -1,9 +1,9 @@
-source("code/data_management.R")
-source("code/stationnarity.R")
+source("code/utils/data_importation.R")
+source("code/utils/stationnarity.R")
+source("code/models/GVARX.R")
 
 ########## Data Importation ##########
 
-# Import data from Excel sheets
 temperatures_i <- data_importation("code/data/data.xlsx", "temperatures")
 precipitations_i <- data_importation("code/data/data.xlsx", "precipitations")
 gdp_i <- data_importation("code/data/data.xlsx", "GDP")
@@ -17,9 +17,7 @@ precipitations <- climate_variable_treatment(precipitations_i)
 
 # GDP : log difference of the original series
 gdp <- t(apply(log(gdp_i), 1, diff))
-gdp <- gdp[, as.character(1991:2019)]
-
-# Foreign exogenous variable: product of weight matrix and GDP growth variable
+gdp <- as.data.frame(gdp[, as.character(1991:2019)])
 
 ########## Plotting series ##########
 # plot_series(temperatures, "temperatures", "done")
@@ -27,8 +25,11 @@ gdp <- gdp[, as.character(1991:2019)]
 # plot_series(gdp, "gdp", "done")
 
 ########## Testing stationnarity ##########
-kpss_temp <- kpss(temperatures, 0.01, "level")
-print(kpss_temp)
+# kpss_temp <- kpss(precipitations, 0.01, "level")
+# print(kpss_temp)
 
 # Rq: les séries temperatures/precipitations/gdp sont statio
 #     au seuil de 1% (avec constante, sans tendance)
+
+########## GVARX Model ##########
+gvarx_main(temperatures, precipitations, gdp, trade_balance)

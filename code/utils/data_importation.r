@@ -1,6 +1,5 @@
 data_importation <- function(path, sheet_name) {
   # ==========================================
-  # Function: data_importation
   # Purpose: Import data from an Excel file and format it as a dataframe
   #          with rows being countries and columns years.
   # Parameters:
@@ -23,7 +22,6 @@ data_importation <- function(path, sheet_name) {
 
 climate_variable_treatment <- function(df) {
   # ==========================================
-  # Function: climate_variable_treatment
   # Purpose: addjusts climate variables by subtracting a 30-year moving
   #          average from the value of each year.
   # Parameters:
@@ -55,7 +53,6 @@ climate_variable_treatment <- function(df) {
 
 plot_series <- function(df, t_series, process) {
   # ==========================================
-  # Function: plot_series
   # Purpose: Display a time series (temperatures, precipitations
   #          or gdp) for each country on a 5x5 grid
   # Parameters:

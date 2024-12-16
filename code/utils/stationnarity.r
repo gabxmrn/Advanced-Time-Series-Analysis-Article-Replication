@@ -1,6 +1,7 @@
+source("code/models/linear_regr.R")
+
 kpss <- function(df, alpha, level_or_trend) {
   # ==========================================
-  # Function: kpss
   # Purpose: Tests stationnarity for a dataframe
   #          Null hypothesis: data is stationnary
   # Parameters:
@@ -43,21 +44,21 @@ kpss <- function(df, alpha, level_or_trend) {
     # Linear regression of the model
     if (level_or_trend == "trend") {
       t <- 1:n
-      m <- linear_reg(y = temp_df, x = t) # linear regression with trend
+      regr <- linear_reg(y = temp_df, x = t) # linear regression with trend
       stat_table <- c(0.216, 0.176, 0.146, 0.119) # Critical values
     } else {
-      m <- linear_reg(y = temp_df, x = 1) # Linear regression with constant
+      regr <- linear_reg(y = temp_df) # Linear regression with constant
       stat_table <- c(0.739, 0.574, 0.463, 0.347) # Critical values
     }
 
-    res <- m$residuals # Residuals of model
+    res <- regr$residuals # Residuals of model
 
     # Compute test statistic
     s <- cumsum(res) # Cumulative sum of residuals
     eta <- sum(s^2) / (n^2) # Partial sum
     s2 <- sum(res^2) / n # Average square residuals
 
-    lm_stat <- eta / s2  # Test statistic 
+    lm_stat <- eta / s2  # Test statistic
 
     # Compute p-value
     p_val <- approx(stat_table, tablep, lm_stat, rule = 2)$y
@@ -73,66 +74,4 @@ kpss <- function(df, alpha, level_or_trend) {
   }
 
   return(df_result)
-}
-
-linear_reg <- function(y, x) {
-  # ==========================================
-  # Function: linear_reg
-  # Purpose: computes the linear regression for the models y ~ 1
-  #          and y ~ t with t being a trend
-  # Parameters:
-  #           y: endogenous variable
-  #           x: constant or constant + trend
-  # Returns:
-  #           beta: beta of the model
-  #           fitted_values: fitted values of the model
-  #           residuals: residuals of the model
-  # ==========================================
-
-  n <- length(y) # Length of y
-
-  # Regression with constant
-  if (length(x) == 1) {
-
-    # Beta
-    beta <- mean(y)
-
-    # Fitted values
-    fitted_values <- rep(beta, n)
-
-    # Residuals
-    residuals <- y - fitted_values
-
-    # Return results
-    return(list(
-      coefficients = beta,
-      fitted_values = fitted_values,
-      residuals = residuals
-    ))
-
-    # Complete regression
-  } else {
-
-    # Add constant to x
-    x <- cbind(1, x)
-
-    # Beta: (t(x)x)^(-1)t(x)y
-    x_tx <- t(x) %*% x
-    x_tx_inv <- solve(x_tx)
-    x_ty <- t(x) %*% y
-    beta <- x_tx_inv %*% x_ty
-
-    # Fitted values
-    fitted_values <- x %*% beta
-
-    # Residuals
-    residuals <- y - fitted_values
-
-    # Return results
-    return(list(
-      coefficients = beta,
-      fitted_values = fitted_values,
-      residuals = residuals
-    ))
-  }
 }
