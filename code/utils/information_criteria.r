@@ -32,23 +32,23 @@ compute_ic <- function(data, country, max_lag) {
     n_res <- nrow(res)
     sigma_res <- crossprod(res) / n_res # Covariance matrix of residuals
 
-    # Compute log-likelihood
-    loglikelihood <- - 0.5 * n_res * k * log(2 * pi) -
-      0.5 * n_res * log(det(sigma_res)) -
-      0.5 * sum(diag(res %*% solve(sigma_res) %*% t(res)))
+    # # Compute log-likelihood
+    # loglikelihood <- - 0.5 * n_res * k * log(2 * pi) -
+    #   0.5 * n_res * log(det(sigma_res)) -
+    #   0.5 * sum(diag(res %*% solve(sigma_res) %*% t(res)))
 
-    # Compute information criterion
-    # Result: all countries should have 5 lags according to the 3 criterion
-    results[p, 1] <- 2 * (k * p + 1) - 2 * loglikelihood
-    results[p, 2] <- (k * p + 1) * log(n_res) - 2 * loglikelihood
-    results[p, 3] <- 2 * (k * p + 1) * log(log(n_res)) - 2 * loglikelihood
+    # # Compute information criterion
+    # # Result: all countries should have 5 lags according to the 3 criterion
+    # results[p, 1] <- 2 * (k * p + 1) - 2 * loglikelihood
+    # results[p, 2] <- (k * p + 1) * log(n_res) - 2 * loglikelihood
+    # results[p, 3] <- 2 * (k * p + 1) * log(log(n_res)) - 2 * loglikelihood
 
     # Other method -> uses a proxy for log-likelihood (see vars package)
     # Does not give same results -> closer to the ones in the article (majority of countries with lag = 1)
-    # results[p, 1] <- log(det(sigma_res)) + (2 / n_res) * (p * k^2 + k)
-    # results[p, 2] <- log(det(sigma_res)) + (log(n_res) / n_res) * (p * k^2 + k)
-    # results[p, 3] <- log(det(sigma_res)) + (2 * log(log(n_res)) / n_res) *
-    #   (p * k^2 + k)
+    results[p, 1] <- log(det(sigma_res)) + (2 / n_res) * (p * k^2 + k)
+    results[p, 2] <- log(det(sigma_res)) + (log(n_res) / n_res) * (p * k^2 + k)
+    results[p, 3] <- log(det(sigma_res)) + (2 * log(log(n_res)) / n_res) *
+      (p * k^2 + k)
   }
 
   # Display results

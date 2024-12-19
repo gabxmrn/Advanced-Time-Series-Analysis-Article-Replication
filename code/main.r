@@ -35,4 +35,9 @@ foreign_var <- as.matrix(weight_maxtrix) %*% as.matrix(gdp)
 #     au seuil de 1% (avec constante, sans tendance)
 
 ########## GVARX Model ##########
-svarx_main(temperatures, precipitations, gdp, foreign_var)
+test <- svarx_main(temperatures, precipitations, gdp, foreign_var)
+a <- test[[1]]
+b <- test[[2]]
+y <- test[[3]]
+x <- test[[4]]
+u <- test[[5]]
