@@ -1,6 +1,7 @@
 source("code/utils/data_importation.R")
 source("code/utils/stationnarity.R")
 source("code/models/SVARX.R")
+source("code/models/BSVAR.R")
 
 ########## Data Importation ##########
 
@@ -41,3 +42,7 @@ b <- test[[2]]
 y <- test[[3]]
 x <- test[[4]]
 u <- test[[5]]
+
+prior_spec <- data_importation("code/data/priors_specifications.xlsx", "Feuil1")
+
+test <- bs_main(a, b, y, x, u, prior_spec)
