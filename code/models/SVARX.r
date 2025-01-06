@@ -9,7 +9,7 @@ svarx_main <- function(temperatures, precipitations, gdp, foreign_variable) {
   #         A: global structural matrix
   #         B: global coefficient matrix
   #         Y: global Y matrix
-  #         X: global  X matrix
+  #         X: global X matrix
   #         U: global residual matrix
   # ==========================================
 

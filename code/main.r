@@ -8,7 +8,7 @@ source("code/models/BSVAR.R")
 temperatures_i <- data_importation("code/data/data.xlsx", "temperatures")
 precipitations_i <- data_importation("code/data/data.xlsx", "precipitations")
 gdp_i <- data_importation("code/data/data.xlsx", "GDP")
-weight_maxtrix <- data_importation("code/data/trade balance.xlsx", "Feuil1")
+weight_matrix <- data_importation("code/data/trade balance.xlsx", "Feuil1")
 
 ########## Data Treatment ##########
 
@@ -21,7 +21,7 @@ gdp <- t(apply(log(gdp_i), 1, diff))
 gdp <- as.data.frame(gdp[, as.character(1991:2019)])
 
 # Foreign exogenous variable computation
-foreign_var <- as.matrix(weight_maxtrix) %*% as.matrix(gdp)
+foreign_var <- as.matrix(weight_matrix) %*% as.matrix(gdp)
 
 ########## Plotting series ##########
 # plot_series(temperatures, "temperatures", "done")
@@ -46,3 +46,6 @@ u <- test[[5]]
 prior_spec <- data_importation("code/data/priors_specifications.xlsx", "Feuil1")
 
 test <- bs_main(a, b, y, x, u, prior_spec)
+
+#test <- sum_prior_a(a, prior_spec, weight_matrix)
+print("test")
