@@ -36,16 +36,12 @@ foreign_var <- as.matrix(weight_matrix) %*% as.matrix(gdp)
 #     au seuil de 1% (avec constante, sans tendance)
 
 ########## GVARX Model ##########
-test <- svarx_main(temperatures, precipitations, gdp, foreign_var)
-a <- test[[1]]
-b <- test[[2]]
-y <- test[[3]]
-x <- test[[4]]
-u <- test[[5]]
+svar_result <- svarx_main(temperatures, precipitations, gdp, foreign_var)
+
 
 prior_spec <- data_importation("code/data/priors_specifications.xlsx", "Feuil1")
 
-test <- bs_main(a, b, y, x, u, prior_spec)
+test <- bs_main(svar_result, prior_spec)
 
 #test <- sum_prior_a(a, prior_spec, weight_matrix)
 print("test")

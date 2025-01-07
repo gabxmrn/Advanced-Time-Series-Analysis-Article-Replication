@@ -1,32 +1,40 @@
-bs_main <- function(a, b, y, x, u, prior_specifications) {
+bs_main <- function(svar_model, prior_specifications) {
 
-  D <- u %*% t(u) / ncol(y)
-  inv_A <- solve(a)
+  # Get output matrix for SVARX model
+  A <- svar_model[[1]]
+  B <- svar_model[[2]]
+  Y <- svar_model[[3]]
+  X <- svar_model[[4]]
+  U <- svar_model[[5]]
 
-  kappa <- 0.5
+  inv_A <- solve(A) # Inverse matrix of A
+  D <- U %*% t(U) / ncol(Y) # Variance-covariance matrix
+
+  kappa <- 0.5 # Value set by article
 
   # Compute omega
   omega <- inv_A %*% D %*% t(inv_A)
 
   # Compute somega
-  ar_omega <- aromega_computation(y, p = 2)
+  ar_omega <- aromega_computation(Y, p = 1) # warning p=2 chez B&H
 
 
 
 
 
-  # test <- log_likelihood(a, y, kappa, omega, somega)
+  test <- log_likelihood(A, Y, kappa, omega, ar_omega)
+  test2 <- compute_zeta_star(A, X, Y, ar_omega, p = 2)
 
-  return(ar_omega)
+  return(X)
 }
 
 mh <- function() {
 
 }
 
-posterior_a <- function(a, prior_spec, weight_matrix) {
+posterior_a <- function(A, prior_spec, weight_matrix) {
 
-  prior <- sum_prior_a(a, prior_spec, weight_matrix)
+  prior <- sum_prior_a(A, prior_spec, weight_matrix)
   likelihood <- 1
 
   posterior <- prior + likelihood
@@ -36,12 +44,73 @@ posterior_a <- function(a, prior_spec, weight_matrix) {
 
 log_likelihood <- function(A, Y, kappa, omega, ar_omega) {
 
-  t <- ncol(Y)
+  t <- ncol(Y) # Number of observations
+  A <- as.matrix(A) # Convert A from a df to a matrix
 
+  # Compute numerator of log-likelihood
   num <- t * 0.5 * log(det(t(A) %*% omega %*% A))
-  tau <- diag(kappa) * diag(t(A) %*% ar_omega %*% A)
+  tau <- kappa * diag(t(A) %*% ar_omega %*% A)
 
-  return(tau)
+  for (i in length(tau)) {
+    num <- num + kappa * log(tau[i])
+  }
+
+  # Compute denominator of log-likelihood
+  kappa_star <- kappa + t / 2
+  #tau_star <- tau + zeta_star / 2
+
+
+  # Compute log-likelihood
+  # like <- num - denom
+
+  return(num)
+}
+
+compute_zeta_star <- function(A, X, Y, ar_omega, p) {
+
+  # Hyperparameters value
+  lambda0 <- 0.5
+  lambda1 <- 1
+  lambda3 <- 100
+  lambda4 <- 100
+
+  # Element v1
+  v1 <- matrix(data = (1:p), nrow = p, ncol = 1) ^ (-2 * lambda1)
+
+  # Element v2
+  v2 <- matrix(data = diag(solve(diag(diag(ar_omega)))), ncol = 1)
+
+  # Element v3
+  v3 <- kronecker(v1, v2)
+  v3 <- lambda0 ^ 2 * rbind(v3, lambda3 ^ 2, lambda4 ^ 2)
+
+  # Compute matrices M and M^(-1)
+  M <- diag(x = c(v3), nrow = nrow(v3), ncol = nrow(v3))
+  inv_M <- solve(M)
+
+  # Compute P, the Cholesky factor of M^(-1)
+  P <- chol(inv_M)
+
+  # Build augmented vectors: X_tild and Y_tild
+  X_temp <- as.matrix(t(X))
+  #X_tild <- cbind(X_temp[, 1:(ncol(X_temp) - 1)], diag(P))
+
+  # Voir si on implémente ça on si on fait papier
+
+
+  # Compute beta
+
+
+
+  # Compute residuals
+
+
+
+  # Compute zeta_star
+
+
+  # Output - zeta_star
+  return(M)
 }
 
 sum_prior_a <- function(A, prior_spec, weight_matrix) {
@@ -128,7 +197,7 @@ prior_student <- function(x, mu, nu, sigma) {
 
 aromega_computation <- function(y, p) {
 
-  # Result matrix
+  # Outout matrix
   error_df <- c()
 
   n <- ncol(y)
