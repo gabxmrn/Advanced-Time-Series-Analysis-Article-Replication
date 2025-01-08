@@ -39,14 +39,14 @@ bs_main <- function(svar_model, prior_specifications) {
   # Plot IRF + make a map for better visualisation
 
   test <- log_likelihood(A, Y, kappa, omega, ar_omega)
-  test2 <- compute_zeta_star(A, X, Y, ar_omega, p = 2)
+  #test2 <- compute_zeta_star(A, X, Y, ar_omega, p = 2)
 
-  return(X)
+  return(test)
 }
 
 mh <- function(iter, burnin) {
 
-  # Output vectors for matrices Aand zeta
+  # Output vectors for matrices A and zeta
 
   # Compute posterior for initial matrix
 
@@ -68,6 +68,19 @@ mh <- function(iter, burnin) {
     
     # If iter > burnin then stock A and zeta in output matrix
 
+}
+
+update_a <- function(A, mu, weight_matrix) {
+
+  H <- solve(A)
+
+  # To do :)
+  H_F <- 1
+
+  H_updated <- H + mu * H_F
+  A_updated <- solve(H_updated)
+
+  return(A_updated)
 }
 
 posterior_a <- function(A, Y, kappa, omega, ar_omega, prior_spec, weight_matrix) {
@@ -96,12 +109,12 @@ log_likelihood <- function(A, Y, kappa, omega, ar_omega) {
   # Compute denominator of log-likelihood
   kappa_star <- kappa + t / 2
   #tau_star <- tau + zeta_star / 2
-
+  #denom <-
 
   # Compute log-likelihood
   # like <- num - denom
 
-  return(num)
+  return(tau)
 }
 
 compute_zeta_star <- function(A, X, Y, ar_omega, p) {
@@ -119,8 +132,19 @@ compute_zeta_star <- function(A, X, Y, ar_omega, p) {
   v2 <- matrix(data = diag(solve(diag(diag(ar_omega)))), ncol = 1)
 
   # Element v3
-  v3 <- kronecker(v1, v2)
-  v3 <- lambda0 ^ 2 * rbind(v3, lambda3 ^ 2, lambda4 ^ 2)
+  v1_kro_v2 <- kronecker(v1, v2)
+  v3_temp <- c(lambda3 ^ 2, lambda4 ^ 2)
+
+  v3 <- matrix(nrow = 0, ncol = 1)
+  i <- 1
+
+  while (i <= nrow(v1_kro_v2)) {
+    temp <- v1_kro_v2[i:min(i + 5, nrow(v1_kro_v2)), , drop = FALSE]
+    v3 <- rbind(v3, temp, matrix(v3_temp, nrow = 2, ncol = 1, byrow = TRUE))
+    i <- i + 6
+  }
+
+  v3 <- lambda0 ^ 2 * v3
 
   # Compute matrices M and M^(-1)
   M <- diag(x = c(v3), nrow = nrow(v3), ncol = nrow(v3))
@@ -129,26 +153,54 @@ compute_zeta_star <- function(A, X, Y, ar_omega, p) {
   # Compute P, the Cholesky factor of M^(-1)
   P <- chol(inv_M)
 
-  # Build augmented vectors: X_tild and Y_tild
-  X_temp <- as.matrix(t(X))
-  #X_tild <- cbind(X_temp[, 1:(ncol(X_temp) - 1)], diag(P))
+  # Regression with Y_tild and X_tild
+  temp_output <- c()
+  c_temp <- 1
+  c_temp2 <- 1
 
-  # Voir si on implémente ça on si on fait papier
+  for (i in seq_len(33)) {
 
+    Y_temp <- as.matrix(Y[c_temp:(c_temp + 2), ])
+    X_temp <- as.matrix(X[c_temp2:(c_temp2 + 7), ])
 
-  # Compute beta
+    P_i <- as.matrix(P[(8 * i - 7):(8 * i), (8 * i - 7):(8 * i)])
 
+    for (j in seq_len(3)) {
 
+      # Get correct element of A
+      a_i_j <- as.matrix(A[3 * (i - 1) + j, (3 * i - 2):(3 * i)])
 
-  # Compute residuals
+      # Update Y_tild
+      Y_tild <- a_i_j %*% Y_temp
+      v_temp <- matrix(0, 1, 8)
+      Y_tild <- t(cbind(Y_tild, v_temp))
 
+      # Update X_tild
+      X_tild <- t(X_temp)
+      X_tild <- rbind(X_tild, P_i)
+      X_tild_t <- t(X_tild)
 
+      # Compute beta
+      beta <- solve(X_tild_t %*% X_tild) %*% X_tild_t %*% Y_tild
 
-  # Compute zeta_star
+      # Compute residuals
+      res <- Y_tild - X_tild %*% beta
 
+      # Squared residuals
+      res_sq <- t(res) %*% res
+
+      # Store squared residuals
+
+    }
+
+    c_temp <- c_temp + 3
+    c_temp2 <- c_temp2 + 8
+  }
+
+  # Compute variance-covariance matrix: zeta_star
 
   # Output - zeta_star
-  return(M)
+  return(res_sq)
 }
 
 sum_prior_a <- function(A, prior_spec, weight_matrix) {
