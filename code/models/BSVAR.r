@@ -19,8 +19,24 @@ bs_main <- function(svar_model, prior_specifications) {
   ar_omega <- aromega_computation(Y, p = 1) # warning p=2 chez B&H
 
 
+  # Launch MH algorithm -> gives all matrix A and zeta for all draws
 
+  # Compute all diagonal matrices D (Inverse gamma distribution needing kappa_star (consant) and zeta_star)
 
+  # Compute all matrices B (normal with formulas for mean and var-cov)
+
+  # Launch IRF estimations (needs horizon, all matrices A and B, interval and if it is cumulative)
+  # Two sets of IRF: real GDP growth on precipitation or temperature shocks
+  # Steps:
+    # loop on number of draws
+    # Compute H and Phi (B*H) because we are in the case of eq (11)
+    # Compute IRF (see method in code)
+    # Case if the IRF function is cumulative
+    # Store IRF
+    # Once the loop for the country has ended -> compute lower, upper bound (depending on CI) and median
+    # Should output: for each country, for each time period: lower and upper bound + median
+
+  # Plot IRF + make a map for better visualisation
 
   test <- log_likelihood(A, Y, kappa, omega, ar_omega)
   test2 <- compute_zeta_star(A, X, Y, ar_omega, p = 2)
@@ -28,14 +44,36 @@ bs_main <- function(svar_model, prior_specifications) {
   return(X)
 }
 
-mh <- function() {
+mh <- function(iter, burnin) {
+
+  # Output vectors for matrices Aand zeta
+
+  # Compute posterior for initial matrix
+
+  # Loop on number of iterations
+
+    # Generate a new A matrix after a shock -> needs a shock function to estimate H_i
+
+    # Compute the beta and zeta associated to the new matrix
+
+    # Compute posterior of new matrix
+
+    # Compute acceptance ratio
+
+    # Acceptance/rejection step depending on threshold
+
+      # Acceptance: keep proposal
+
+      # Rejection: we don't keep the proposal and start again
+    
+    # If iter > burnin then stock A and zeta in output matrix
 
 }
 
-posterior_a <- function(A, prior_spec, weight_matrix) {
+posterior_a <- function(A, Y, kappa, omega, ar_omega, prior_spec, weight_matrix) {
 
   prior <- sum_prior_a(A, prior_spec, weight_matrix)
-  likelihood <- 1
+  likelihood <- log_likelihood(A, Y, kappa, omega, ar_omega)
 
   posterior <- prior + likelihood
 
@@ -174,7 +212,6 @@ sum_prior_a <- function(A, prior_spec, weight_matrix) {
 
     # Stock results in temporary df
     temp_prior <- c(temp_prior, prior)
-
   }
 
   # Create result dataframe
