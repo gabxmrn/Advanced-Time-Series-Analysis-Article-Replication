@@ -3,7 +3,8 @@ bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   #! Points d'attention
     #! Omega -> voir page 15/16 si bonne forme
     #! prior(A) -> somme des priors de chaque pays ?
-    #! B does not depend on D -> sigma is the ar_omega 
+    #! B does not depend on D -> sigma is the ar_omega
+    #! draw de B -> normal univariate mais est-ce qu'on doit faire une multi variée ?
 
   # Output from SVARX model
   A <- svar_model[[1]]
@@ -55,8 +56,7 @@ bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   # Draw matrices B
   B_draw <- draw_B(A_revised, X, Y, ar_omega, p = 2)
 
-
-  return(B)
+  return(B_draw[[1]])
 }
 
 IRF <- function() {
@@ -78,6 +78,11 @@ IRF <- function() {
 
 draw_B <- function(A_revised, X, Y, ar_omega, p) {
 
+  # Load library (function used: bdiag)
+  library("Matrix")
+
+  B_output <- list() # Output matrix
+
   for (i in seq_along(A_revised)) {
 
     # Get values from draw
@@ -90,19 +95,51 @@ draw_B <- function(A_revised, X, Y, ar_omega, p) {
     m_star <- as.matrix(regr[[2]])
     M_star <- as.matrix(regr[[3]])
 
-    # Loop on countries
+    #Initialize B matrix for draw i
+    B_draw <- matrix(nrow = 0, ncol = 0)
+
+    # Loop countries
     for (k in seq_len(33)) {
 
-      m_star_country <- m_star[[k]]
-      M_star_country <- m_star[[k]]
+      B_temp <- c()
 
-      # Draw values
+      # Loop on series
+      for (j in seq_len(3)) {
 
+        # Get parameters for normal distribution
+        m_star_j <- m_star[[(3 * (k - 1) + j)]]
+        M_star_j <- M_star[[(3 * (k - 1) + j)]]
 
+        # Draw values from a normal univariate distribution
+        B_row_j_draw <- normal(m_star_j, M_star_j)
+
+        # Add to country values
+        B_temp <- rbind(B_temp, B_row_j_draw)
+      }
+
+      B_draw <- bdiag(B_draw, B_temp)
     }
 
+    # Output matrix B
+    B_output[[i]] <- as.matrix(B_draw)
   }
-  return(m_star[[1]])
+
+  return(B_output)
+}
+
+normal <- function(mean, cov_var) {
+
+  # Output vector
+  output <- c()
+
+  for (i in seq_along(mean)) {
+
+    draw <- rnorm(1, mean = mean[i], sd = sqrt(cov_var[i, i]))
+
+    output <- c(output, draw)
+  }
+
+  return(output)
 }
 
 draw_D <- function(A_draw, zeta_star_draw, kappa, nb_obs, ar_omega) {
@@ -215,7 +252,7 @@ metropolis_hastings_algorithm <- function(iter, burnin, A_ini, X, Y, kappa, omeg
   output_zeta <- list()
 
   # Loop on number of iterations
-  for (draw in seq_len(10)) {
+  for (draw in seq_len(iter)) {
 
     # Generate a new A matrix
     A_new <- draw_A(A_old, pU, scale = 1, weight_matrix)
@@ -326,7 +363,7 @@ log_likelihood <- function(A, X, Y, kappa, zeta_star, omega, ar_omega) {
   A <- as.matrix(A) # Convert A from a df to a matrix
 
   # Compute numerator of log-likelihood
-  num <- t * 0.5 * log(det(t(A) %*% omega %*% A))
+  num <- t * 0.5 * log(det(t(A) %*% omega %*% A)) + kappa
   tau <- kappa * diag(t(A) %*% ar_omega %*% A)
 
   for (i in length(tau)) {
@@ -431,11 +468,12 @@ compute_tilded_regr <- function(A, X, Y, ar_omega, p) {
 
       # Store squared residuals
       zeta <- c(zeta, res_sq)
+      
+      n <- n + 1
     }
 
     c_temp <- c_temp + 3
     c_temp2 <- c_temp2 + 8
-    n <- n + 1
   }
 
   # Output - zeta_star
