@@ -41,7 +41,7 @@ svar_result <- svarx_main(temperatures, precipitations, gdp, foreign_var)
 
 prior_spec <- data_importation("code/data/priors_specifications.xlsx", "Feuil1")
 
-test <- bs_main(svar_result, prior_spec)
+test <- bs_main(svar_result, prior_spec, weight_matrix)
 
 #test <- sum_prior_a(a, prior_spec, weight_matrix)
 print("test")

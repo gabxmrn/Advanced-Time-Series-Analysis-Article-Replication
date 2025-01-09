@@ -13,7 +13,7 @@ svarx_main <- function(temperatures, precipitations, gdp, foreign_variable) {
   #         U: global residual matrix
   # ==========================================
 
-  # Load libraries
+  # Load library (function used: bdiag)
   library("Matrix")
 
   countries <- as.character(row.names(temperatures))
