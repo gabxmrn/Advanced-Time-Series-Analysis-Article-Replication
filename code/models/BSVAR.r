@@ -1,10 +1,16 @@
 bs_main <- function(svar_model, prior_specifications, weight_matrix) {
+  # ==========================================
+  # Purpose:
+  # Parameters:
+  # Returns:
+  # ==========================================
 
   #! Points d'attention
     #! Omega -> voir page 15/16 si bonne forme
     #! prior(A) -> somme des priors de chaque pays ?
     #! B does not depend on D -> sigma is the ar_omega
     #! draw de B -> normal univariate mais est-ce qu'on doit faire une multi variée ?
+    #! pour la normal je fais un tirage, j'utilise pas la distribution
 
   # Output from SVARX model
   A <- svar_model[[1]]
@@ -56,62 +62,71 @@ bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   # Draw matrices B
   B_draw <- draw_B(A_revised, X, Y, ar_omega, p = 2)
 
+  # Launch IRF
   test <- IRF_preprocessing(A_revised, B_draw, weight_matrix)
 
   return(test)
 }
 
-IRF_preprocessing <- function(A,B,wm) { 
+IRF_preprocessing <- function(A, B, wm) {
+  # ==========================================
+  # Purpose:
+  # Parameters:
+  # Returns:
+  # ==========================================
 
+  # List of countries
   countries <- as.character(row.names(wm))
 
+  # Initialize counts
+  c <- 1
+  c2 <- 1
+
+  # Loop on countries
   for (country in countries) {
 
     A_i <- list()
     B_i <- list()
 
-    c <- 1
-    c2 <- 1
-
+    # For each draw, get the country specific matrices A and B
     for (i in seq_along(A)) {
       A_temp <- A[[i]]
       B_temp <- B[[i]]
 
-      A_i[[i]] <- A_temp[c:(c+2), c:(c+2)]
-      B_i[[i]] <- B_temp[c:(c+2), c2:(c2+7)]
-        dimnames(A_i[[i]]) <- list(
-    rownames(A_temp)[c:(c+2)],
-    colnames(A_temp)[c:(c+2)]
-  )
+      A_i[[i]] <- A_temp[c:(c + 2), c:(c + 2)]
+      B_i[[i]] <- B_temp[c:(c + 2), c2:(c2 + 7)]
     }
 
-    #Ligne pour lancer l'IRF (voir C)
-    test <- IRF(A_i, B_i, 5, FALSE)
+    # Launch IRF
+    test <- IRF(A_i, B_i, 5)
 
+    # Increment count for next country
     c <- c + 3
     c2 <- c2 + 8
-
-    return(A_i[[1]])
-
   }
+
+  return(test)
 }
 
+IRF <- function(A_draw, B_draw, horizon, ci = NULL, is_cumulative = FALSE) {
 
-IRF <- function(A_draw, B_draw, horizon, is_cumulative = FALSE) { # Launch IRF estimations (needs horizon, all matrices A and B, interval and if it is cumulative)
   # Initialization
   irf_results <- list()
   #Two sets of IRF: real GDP growth on precipitation or temperature shocks
-  # Steps:
-    #For each country, boucle sur le nombre de tirages
-    
-    # loop on number of draws
-     for (i in seq_along(A_draw)) {
-    A <- A_draw[[i]]
-    B <- B_draw[[i]]
-    # Compute H and Pi (B*H) because we are in the case of eq (11)
-    H <- solve(A)
-    Pi <- H %*% B
-    colnames(Pi) <- colnames(B)
+
+  # Loop the draws (compute one irf by draw)
+  for (i in seq_along(A_draw)) {
+
+    # Get matrices A and B of the draw
+    a <- A_draw[[i]]
+    b <- B_draw[[i]]
+
+    # Compute reduced form coefficient: Pi (eq. 11)
+    pi_coeff <- solve(a) %*% b
+    # reminder: col -> temp.1, prec.1, gdp.1, temp.2, prec.2, gdp.2, intercept, x*
+
+
+  }
     # Compute IRF (see method in code): 
     # Initialization for every horizon: 
     # irf_temp <- matrix(0, nrow = nrow(A), ncol = horizon + 1)
@@ -130,20 +145,29 @@ IRF <- function(A_draw, B_draw, horizon, is_cumulative = FALSE) { # Launch IRF e
     # }
     # # Store IRF
     #  irf_results[[i]] <- irf_temp
-  }
+  # }
     # Once the loop for the country has ended -> compute lower, upper bound (depending on CI) and median
     # Should output: for each country, for each time period: lower and upper bound + median
 
-  # Plot IRF + make a map for better visualisation
-#library (ggplot2)
-#horizon <- 10
-#irf_var1 <- sapply(results, , )
+  # Plot IRF + make a map for better visualisation -> autre fonction
+  #library (ggplot2)
+  #horizon <- 10
+  #irf_var1 <- sapply(results, , )
 
-return(Pi)
-
+  return(b)
 }
 
 draw_B <- function(A_revised, X, Y, ar_omega, p) {
+  # ==========================================
+  # Purpose: computes matrices B associated to the drawn matrices A
+  # Parameters:
+  #           A_revised: the drawn matrices A
+  #           X, Y: exog and endog variables
+  #           ar_omega: matrix of variance-covariance from the AR(1) regression
+  #           p: number of lags
+  # Returns:
+  #         B_output: matrices B associated to the draw matrices A
+  # ==========================================
 
   # Load library (function used: bdiag)
   library("Matrix")
@@ -195,6 +219,14 @@ draw_B <- function(A_revised, X, Y, ar_omega, p) {
 }
 
 normal <- function(mean, cov_var) {
+  # ==========================================
+  # Purpose: generate a vector of draws from a normal distribution
+  # Parameters:
+  #           mean: mean of the normal distribution
+  #           cov_var: variance-covariance matrix of the normal distribution
+  # Returns:
+  #        output: a vector of draws
+  # ==========================================
 
   # Output vector
   output <- c()
@@ -210,6 +242,17 @@ normal <- function(mean, cov_var) {
 }
 
 draw_D <- function(A_draw, zeta_star_draw, kappa, nb_obs, ar_omega) {
+  # ==========================================
+  # Purpose: draws all matrices D associated with the matrices A
+  # Parameters:
+  #           A_draw: matrices A drawed using the MH algo
+  #           zeta_star_draw: the zeta_star associated to the A matrices
+  #           kappa: constant term
+  #           nb_obs: number of observations in the model
+  #           ar_omega: matrix of variance-covariance from the AR(1) regression
+  # Returns:
+  #         output_D: matrices D associated to the draw
+  # ==========================================
 
   output_D <- list() # Output list
 
@@ -243,6 +286,15 @@ draw_D <- function(A_draw, zeta_star_draw, kappa, nb_obs, ar_omega) {
 }
 
 inverse_gamma <- function(kappa_star, tau_star) {
+  # ==========================================
+  # Purpose: Draws multiple values from an inverse gamma
+  #          they all have the same mean but a different variance
+  # Parameters:
+  #           kappa_star: mean of the inverse gamma
+  #           tau_star: vector of variances of the inverse gamma
+  # Returns:
+  #         draws: a vector of draws from the inverse gamma
+  # ==========================================
 
   # Output vector
   draws <- c()
@@ -259,6 +311,15 @@ inverse_gamma <- function(kappa_star, tau_star) {
 }
 
 revise_A <- function(A, mu, weight_matrix) {
+  # ==========================================
+  # Purpose: Revise a matrix A with the information set on H
+  # Parameters:
+  #           A: matrix of structural coefficients to update
+  #           mu: weight of matrix H_F
+  #           weight_matrix: trading weight matrix used to compute H_F
+  # Returns:
+  #         A_updated: the new matrix A, updated with infos from H
+  # ==========================================
 
   # Load library (function used: bdiag)
   library("Matrix")
@@ -306,7 +367,25 @@ revise_A <- function(A, mu, weight_matrix) {
   return(A_updated)
 }
 
-metropolis_hastings_algorithm <- function(iter, burnin, A_ini, X, Y, kappa, omega, ar_omega, prior_spec, weight_matrix, pU) {
+metropolis_hastings_algorithm <- function(iter, burnin,
+                                          A_ini, X, Y, kappa, omega, ar_omega,
+                                          prior_spec, weight_matrix, pU) {
+  # ==========================================
+  # Purpose: lauches the MH algorithm to draw a sample of matrices A
+  # Parameters:
+  #           iter, burnin: number of iterations and burnin
+  #           A_ini: initial matrix A (source: GVARX)
+  #           X, Y: exog and endog variables
+  #           kappa: constant term
+  #           omega: variance-covariance matrix of the model reduced form
+  #           ar_omega: variance-covariance matrix of AR(1) regression
+  #           prior_spec: information on the prior of some coefficients of A
+  #           weight_matrix: trading weight matrix
+  #           pU: coefficients of A that have to be drawn
+  # Returns:
+  #         output_A: list storing the draws of A
+  #         output_zeta: list storing the associated zetas
+  # ==========================================
 
   # Initialization - GVARX is the starting point
   A_old <- A_ini
@@ -357,6 +436,16 @@ metropolis_hastings_algorithm <- function(iter, burnin, A_ini, X, Y, kappa, omeg
 }
 
 draw_A <- function(A, pU, scale, wm) {
+  # ==========================================
+  # Purpose: draws a matrix A after a normal shock
+  # Parameters:
+  #           A: matrix A, starting point for the draw
+  #           pU: coefficients of matrix A to update
+  #           scale: scale of the shock
+  #           wm: trading weight matrix
+  # Returns:
+  #           A_updated: the new A matrix
+  # ==========================================
 
   # Load library (function used: bdiag)
   library("Matrix")
@@ -409,7 +498,21 @@ draw_A <- function(A, pU, scale, wm) {
   return(as.matrix(A_updated))
 }
 
-posterior_A <- function(A, X, Y, kappa, zeta_star, omega, ar_omega, prior_spec, weight_matrix) {
+posterior_A <- function(A, X, Y, kappa, zeta_star, 
+                        omega, ar_omega, prior_spec, weight_matrix) {
+  # ==========================================
+  # Purpose: function that computes the posterior of A (log)
+  # Parameters:
+  #           A, X, Y: matrix of structural coeff, exog and endog variables
+  #           kappa: constant term
+  #           zeta_star: sum of squared residuals of tilded regression
+  #           omega: variance-covariance matrix of the model reduced form
+  #           ar_omega: variance-covariance matrix of the AR(1) regression
+  #           prior_spec: parameters of the student distribution for some coefficients of A
+  #           weight_matrix: matrix containing trading weights
+  # Returns:
+  #         posterior: the posterior of A
+  # ==========================================
 
   # Compute prior (using log)
   prior_a_country <- sum_prior_a(A, prior_spec, weight_matrix)
@@ -425,6 +528,19 @@ posterior_A <- function(A, X, Y, kappa, zeta_star, omega, ar_omega, prior_spec, 
 }
 
 log_likelihood <- function(A, X, Y, kappa, zeta_star, omega, ar_omega) {
+  # ==========================================
+  # Purpose: computes the log-likelihood associated with a matrix A
+  # Parameters:
+  #           A: structural coefficients
+  #           X: exogeneous variables
+  #           Y: endogeneous variables
+  #           kappa: constant term
+  #           zeta_star: sum of squared residuals of tilded regression
+  #           omega: variance-covariance matrix of the model reduced form
+  #           ar_omega: variance-covariance matrix of the AR(1) regression
+  # Returns:
+  #         like: the log-likelihood of matrix A
+  # ==========================================
 
   t <- ncol(Y) # Number of observations
   A <- as.matrix(A) # Convert A from a df to a matrix
@@ -452,6 +568,19 @@ log_likelihood <- function(A, X, Y, kappa, zeta_star, omega, ar_omega) {
 }
 
 compute_tilded_regr <- function(A, X, Y, ar_omega, p) {
+  # ==========================================
+  # Purpose: computes the tilded regression detailed on page 24
+  #          of the article (regression with augmented vectors)
+  # Parameters:
+  #           A: matrix of structural coefficients
+  #           X: matrix of exogeneous variables
+  #           Y: matrix of endogeneous variables
+  #           p: number of lag
+  # Returns:
+  #         zeta: sum of squared residuals of the regression
+  #         m_star: mean
+  #         M_star: matrix of variance-covariance
+  # ==========================================
 
   # Hyperparameters value
   lambda0 <- 0.5
@@ -548,6 +677,17 @@ compute_tilded_regr <- function(A, X, Y, ar_omega, p) {
 }
 
 sum_prior_a <- function(A, prior_spec, weight_matrix) {
+  # ==========================================
+  # Purpose: compute the log of the prior of matrix A
+  # Parameters:
+  #           A: matrix A with the coefficients of the VAR regression
+  #           prior_spec: parameters of the distribution for the
+  #                       coefficients a_gdp_temp and a_gdp_prec
+  #           weight_matrix: matrix containing trading weights to compute H_F
+  # Returns:
+  #        prior: the prior of matrix A (still a log value),
+  #               which is the sum of each country's priors
+  # ==========================================
 
   # Get model parameters - a_temp_gdp and a_prec_gdp
   mode_tg_pg <- 0
@@ -618,14 +758,36 @@ sum_prior_a <- function(A, prior_spec, weight_matrix) {
 }
 
 prior_student <- function(x, mu, nu, sigma) {
+  # ==========================================
+  # Purpose: draws a value from the density of a student distribution
+  # Parameters:
+  #           x: value of parameter
+  #           mu: mode
+  #           nu: degree of freedom
+  #           sigma: scale
+  # Returns:
+  #       prior: prior of the parameter inputed
+  # ==========================================
 
+  # Load library
   library(LaplacesDemon)
+
+  # Compute prior
   prior <- dst(x = x, mu = mu, sigma = sigma, nu = nu, log = FALSE)
 
   return(prior)
 }
 
 aromega_computation <- function(y, p) {
+  # ==========================================
+  # Purpose: Computes the variance-covariance matrix of an Ar(1) regression
+  # Parameters:
+  #           Y: vector containing the endogeneous variables
+  #           p: number of lags
+  # Returns:
+  #        var_cov: the variance-covariance matrix
+  # ==========================================
+
 
   # Outout matrix
   error_df <- c()
