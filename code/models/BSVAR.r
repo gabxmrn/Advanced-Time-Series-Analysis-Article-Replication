@@ -35,8 +35,8 @@ bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   ar_omega <- aromega_computation(Y, p = 1) # warning p=2 chez B&H
 
   # Algorithm parameters
-  iter <- 10
-  burnin <- 5
+  iter <- 50
+  burnin <- 10
 
   # When drawing matrix A, positions to update
   position_update <- matrix(data = 0, nrow = 3, ncol = 3)
@@ -63,12 +63,51 @@ bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   B_draw <- draw_B(A_revised, X, Y, ar_omega, p = 2)
 
   # Launch IRF
-  test <- IRF_preprocessing(A_revised, B_draw, weight_matrix)
+  irf <- IRF_processing(A_revised, B_draw, weight_matrix)
+  IRF_plot(irf, 5, "temp")
+  IRF_plot(irf, 5, "prec")
 
-  return(test)
+  return("no")
 }
 
-IRF_preprocessing <- function(A, B, wm) {
+IRF_plot <- function(irf, horizon, series_shock) {
+
+  library(ggplot2)
+  library(gridExtra)
+  library(grid)
+
+  irf_for_plot <- IRF_stats(irf, horizon, series_shock)
+
+  create_plot <- function(df, name) {
+    ggplot(df, aes(x = 1:nrow(df))) +
+      geom_ribbon(aes(ymin = lower, ymax = upper), fill = "skyblue", alpha = 0.4) +
+      geom_line(aes(y = median), color = "red", size = 1) +
+      labs(x = "Years", y = "") +
+      ggtitle(name) +
+      theme_minimal() +
+      theme(axis.title.x = element_text(size = 10),
+            axis.title.y = element_text(size = 10),
+            axis.text.x = element_text(size = 8),
+            axis.text.y = element_text(size = 8),
+            panel.grid = element_blank())
+  }
+
+  # Plot for each series
+  plot_list <- lapply(names(irf_for_plot), function(name) {
+    create_plot(irf_for_plot[[name]], name)
+  })
+
+  # Format global plot
+  grid.arrange(grobs = plot_list, ncol = 6, nrow = 6)
+  if (series_shock == "temp") {
+    grid.text("Impact of a temperature shock on GDP", x = 0.5, y = 1, gp = gpar(fontsize = 20, fontface = "bold"))
+  } else {
+     grid.text("Impact of a precipitation shock on GDP", x = 0.5, y = 1, gp = gpar(fontsize = 20, fontface = "bold"))
+  }
+
+}
+
+IRF_processing <- function(A, B, wm) {
   # ==========================================
   # Purpose:
   # Parameters:
@@ -77,6 +116,9 @@ IRF_preprocessing <- function(A, B, wm) {
 
   # List of countries
   countries <- as.character(row.names(wm))
+
+  # Initialize output
+  irf_total <- list()
 
   # Initialize counts
   c <- 1
@@ -87,6 +129,7 @@ IRF_preprocessing <- function(A, B, wm) {
 
     A_i <- list()
     B_i <- list()
+    irf_country <- list()
 
     # For each draw, get the country specific matrices A and B
     for (i in seq_along(A)) {
@@ -95,66 +138,108 @@ IRF_preprocessing <- function(A, B, wm) {
 
       A_i[[i]] <- A_temp[c:(c + 2), c:(c + 2)]
       B_i[[i]] <- B_temp[c:(c + 2), c2:(c2 + 7)]
+
     }
 
-    # Launch IRF
-    test <- IRF(A_i, B_i, 5)
+    # Store IRF
+    irf_total[[country]] <-  IRF_country(A_i, B_i, 2, 5)
 
     # Increment count for next country
     c <- c + 3
     c2 <- c2 + 8
+
   }
 
-  return(test)
+  return(irf_total)
 }
 
-IRF <- function(A_draw, B_draw, horizon, ci = NULL, is_cumulative = FALSE) {
+IRF_stats <- function(irf, horizon, series_shock) {
+
+  if (series_shock == "temp") {
+    ncol <- 3
+  } else if (series_shock == "prec") {
+    ncol <- 6
+  }
+
+  stats_df <- list()
+
+  # Loop on countries
+  countries <- names(irf)
+  for (country in countries) {
+
+    # Get list of irf
+    irf_list <- irf[[country]]
+
+    # Empty dataframes
+    df_temp <- matrix(data = 0, nrow = horizon, ncol = length(irf_list))
+    stats_temp <- as.data.frame(matrix(0, nrow = horizon, ncol = 3))
+    colnames(stats_temp) <- c("lower", "median", "upper")
+
+    # Get impulse-response for country
+    for (draw in seq_along(irf_list)) {
+      temp0 <- irf_list[[draw]]
+      df_temp[, draw] <- temp0[1:horizon, ncol]
+    }
+
+    # Get stats
+    stats_temp[, 1] <- apply(df_temp, 1, function(x) quantile(x, probs = 0.16))
+    stats_temp[, 2] <- apply(df_temp, 1, median)
+    stats_temp[, 3] <- apply(df_temp, 1, function(x) quantile(x, probs = 0.84))
+
+    # Output
+    stats_df[[country]] <- stats_temp
+  }
+
+  return(stats_df)
+}
+
+IRF_country <- function(A_draw, B_draw, nblag, horizon, ci = NULL, is_cumulative = FALSE) {
 
   # Initialization
   irf_results <- list()
   #Two sets of IRF: real GDP growth on precipitation or temperature shocks
 
   # Loop the draws (compute one irf by draw)
-  for (i in seq_along(A_draw)) {
+  for (d in seq_along(A_draw)) {
 
     # Get matrices A and B of the draw
-    a <- A_draw[[i]]
-    b <- B_draw[[i]]
+    a <- A_draw[[d]]
+    b <- B_draw[[d]]
+
+    nvar <- ncol(a) # number of variables in system
+    nrow <- horizon + 1
+
+    # Outpout matrix
+    irf_draw <- matrix(data = 0, nrow = (horizon + nblag), ncol = (nvar * nvar))
 
     # Compute reduced form coefficient: Pi (eq. 11)
-    pi_coeff <- solve(a) %*% b
+    h <- solve(a)
+    pi_coeff <- t(h %*% b)
     # reminder: col -> temp.1, prec.1, gdp.1, temp.2, prec.2, gdp.2, intercept, x*
 
+    # Compute irf for each variable
+    for (i in seq_len(nvar)) {
 
+      # Initialize last row of IRF
+      irf_draw[nrow, (nvar * (i - 1) + 1):(nvar * ((i - 1) + 1))] <- h[i, ]
+
+      # Fill the table backward
+      for (j in seq((nrow - 1), 1, -1)) {
+
+        temp0 <- t(irf_draw[j:(j + nblag - 1),(nvar * (i - 1) + 1):(nvar * ((i - 1) + 1))])
+        temp1 <- as.matrix(c(temp0[, 1], temp0[, 2]))
+        temp2 <- pi_coeff[1:(nvar * nblag), ]
+
+        irf_draw[j, (nvar * (i - 1) + 1):(nvar * ((i - 1) + 1))] <- t(temp1) %*% temp2
+
+      }
+    }
+
+    # Add irf to output
+    irf_results[[d]] <- irf_draw
   }
-    # Compute IRF (see method in code): 
-    # Initialization for every horizon: 
-    # irf_temp <- matrix(0, nrow = nrow(A), ncol = horizon + 1)
-    # shock <- diag(D)
-  
-    # irf_temp[, 1] <- H %*% shock
-    # # Propagation sur tous les horizons
-    # for (h in 1:horizon) {
-    #   Pi_h <- shock %*% Pi 
-    #   # irf_temp[, h + 1] <- t(Pi_h)
-    #   # Pi <- Pi %*% B  #
-    # }
-    # # Case if the IRF function is cumulative
-    # if (is_cumulative) {
-    #   irf_temp <- t(apply(irf_temp, 1, cumsum))
-    # }
-    # # Store IRF
-    #  irf_results[[i]] <- irf_temp
-  # }
-    # Once the loop for the country has ended -> compute lower, upper bound (depending on CI) and median
-    # Should output: for each country, for each time period: lower and upper bound + median
 
-  # Plot IRF + make a map for better visualisation -> autre fonction
-  #library (ggplot2)
-  #horizon <- 10
-  #irf_var1 <- sapply(results, , )
-
-  return(b)
+  return(irf_results)
 }
 
 draw_B <- function(A_revised, X, Y, ar_omega, p) {
