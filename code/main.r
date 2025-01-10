@@ -23,6 +23,9 @@ gdp <- as.data.frame(gdp[, as.character(1991:2019)])
 # Foreign exogenous variable computation
 foreign_var <- as.matrix(weight_matrix) %*% as.matrix(gdp)
 
+# Import data for prior
+prior_spec <- data_importation("code/data/priors_specifications.xlsx", "Feuil1")
+
 ########## Plotting series ##########
 # plot_series(temperatures, "temperatures", "done")
 # plot_series(precipitations, "precipitations", "done")
@@ -32,15 +35,7 @@ foreign_var <- as.matrix(weight_matrix) %*% as.matrix(gdp)
 # kpss_temp <- kpss(precipitations, 0.01, "level")
 # print(kpss_temp)
 
-# Rq: les séries temperatures/precipitations/gdp sont statio
-#     au seuil de 1% (avec constante, sans tendance)
+########## Model ##########
 
-########## GVARX Model ##########
-svar_result <- svarx_main(temperatures, precipitations, gdp, foreign_var)
-
-
-prior_spec <- data_importation("code/data/priors_specifications.xlsx", "Feuil1")
-
-test <- bs_main(svar_result, prior_spec, weight_matrix)
-
-print("test")
+svar_results <- svarx_main(temperatures, precipitations, gdp, foreign_var)
+bsvarx_results <- bs_main(svar_results, prior_spec, weight_matrix)

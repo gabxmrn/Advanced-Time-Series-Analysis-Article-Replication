@@ -1,16 +1,12 @@
 bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   # ==========================================
-  # Purpose:
+  # Purpose: launches the bayesian algorithm
   # Parameters:
-  # Returns:
+  #           svar_model: results the VARX, starting point for the bayesian algo
+  #           prior_specifications: informations about the prior of some elements of A
+  #           weight_matrix: trading weight matrix between the countries
+  # Returns: nothing, plots an IRF
   # ==========================================
-
-  #! Points d'attention
-    #! Omega -> voir page 15/16 si bonne forme
-    #! prior(A) -> somme des priors de chaque pays ?
-    #! B does not depend on D -> sigma is the ar_omega
-    #! draw de B -> normal univariate mais est-ce qu'on doit faire une multi variée ?
-    #! pour la normal je fais un tirage, j'utilise pas la distribution
 
   # Output from SVARX model
   A <- svar_model[[1]]
@@ -32,11 +28,11 @@ bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   }
 
   # Compute ar_omega
-  ar_omega <- aromega_computation(Y, p = 1) # warning p=2 chez B&H
+  ar_omega <- aromega_computation(Y, p = 1) # warning p = 2 chez B&H
 
   # Algorithm parameters
-  iter <- 50
-  burnin <- 10
+  iter <- 5 #4000
+  burnin <- 1 #800
 
   # When drawing matrix A, positions to update
   position_update <- matrix(data = 0, nrow = 3, ncol = 3)
@@ -46,7 +42,10 @@ bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   position_update[2, 3] <- 1
 
   # Draw matrices A
-  temp_draw <- metropolis_hastings_algorithm(iter, burnin, A, X, Y, kappa, omega_test, ar_omega, prior_specifications, weight_matrix, position_update)
+  temp_draw <- metropolis_hastings_algorithm(iter, burnin, A, X, Y, kappa,
+                                             omega_test, ar_omega,
+                                             prior_specifications,
+                                             weight_matrix, position_update)
   A_draw <- temp_draw[[1]]
   zeta_draw <- temp_draw[[2]]
 
@@ -62,15 +61,23 @@ bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   # Draw matrices B
   B_draw <- draw_B(A_revised, X, Y, ar_omega, p = 2)
 
-  # Launch IRF
+  # Launch IRF: impact of a shock on temperature or precipitation on gdp
   irf <- IRF_processing(A_revised, B_draw, weight_matrix)
   IRF_plot(irf, 5, "temp")
   IRF_plot(irf, 5, "prec")
 
-  return("no")
+  return(A_revised)
 }
 
 IRF_plot <- function(irf, horizon, series_shock) {
+    # ==========================================
+  # Purpose: plots the statistics of the IRFs for each country
+  # Parameters:
+  #           irf: a list of irfs
+  #           horizon: time frame
+  #           series_shock: which series has been shocked
+  # Returns: nothing, prints a grid with the IRF of each country
+  # ==========================================
 
   library(ggplot2)
   library(gridExtra)
@@ -100,18 +107,71 @@ IRF_plot <- function(irf, horizon, series_shock) {
   # Format global plot
   grid.arrange(grobs = plot_list, ncol = 6, nrow = 6)
   if (series_shock == "temp") {
-    grid.text("Impact of a temperature shock on GDP", x = 0.5, y = 1, gp = gpar(fontsize = 20, fontface = "bold"))
+    grid.text("Impact of a temperature shock on GDP", x = 0.5, y = 1,
+              gp = gpar(fontsize = 20, fontface = "bold"))
   } else {
-     grid.text("Impact of a precipitation shock on GDP", x = 0.5, y = 1, gp = gpar(fontsize = 20, fontface = "bold"))
+    grid.text("Impact of a precipitation shock on GDP", x = 0.5, y = 1,
+              gp = gpar(fontsize = 20, fontface = "bold"))
+  }
+  return(irf_for_plot)
+}
+
+IRF_stats <- function(irf, horizon, series_shock) {
+  # ==========================================
+  # Purpose: computes the median, lower and upper bound of a set of IRF
+  # Parameters:
+  #           irf: a list of irfs
+  #           horizon: time frame
+  #           series_shock: which series has been shocked
+  # Returns: the stats of the list of irf implemented
+  # ==========================================
+
+  if (series_shock == "temp") {
+    ncol <- 3
+  } else if (series_shock == "prec") {
+    ncol <- 6
   }
 
+  stats_df <- list()
+
+  # Loop on countries
+  countries <- names(irf)
+  for (country in countries) {
+
+    # Get list of irf
+    irf_list <- irf[[country]]
+
+    # Empty dataframes
+    df_temp <- matrix(data = 0, nrow = horizon, ncol = length(irf_list))
+    stats_temp <- as.data.frame(matrix(0, nrow = horizon, ncol = 3))
+    colnames(stats_temp) <- c("lower", "median", "upper")
+
+    # Get impulse-response for country
+    for (draw in seq_along(irf_list)) {
+      temp0 <- irf_list[[draw]]
+      df_temp[, draw] <- rev(temp0[1:horizon, ncol]) ##/!\
+    }
+
+    # Get stats
+    stats_temp[, 1] <- apply(df_temp, 1, function(x) quantile(x, probs = 0.16))
+    stats_temp[, 2] <- apply(df_temp, 1, median)
+    stats_temp[, 3] <- apply(df_temp, 1, function(x) quantile(x, probs = 0.84))
+
+    # Output
+    stats_df[[country]] <- stats_temp
+  }
+
+  return(stats_df)
 }
 
 IRF_processing <- function(A, B, wm) {
   # ==========================================
-  # Purpose:
+  # Purpose: computes the irf for a set of countries
   # Parameters:
-  # Returns:
+  #           A: matrices A
+  #           B: matrices B
+  #           wm: trading weight matrix
+  # Returns: for each country a list of irfs
   # ==========================================
 
   # List of countries
@@ -153,47 +213,16 @@ IRF_processing <- function(A, B, wm) {
   return(irf_total)
 }
 
-IRF_stats <- function(irf, horizon, series_shock) {
-
-  if (series_shock == "temp") {
-    ncol <- 3
-  } else if (series_shock == "prec") {
-    ncol <- 6
-  }
-
-  stats_df <- list()
-
-  # Loop on countries
-  countries <- names(irf)
-  for (country in countries) {
-
-    # Get list of irf
-    irf_list <- irf[[country]]
-
-    # Empty dataframes
-    df_temp <- matrix(data = 0, nrow = horizon, ncol = length(irf_list))
-    stats_temp <- as.data.frame(matrix(0, nrow = horizon, ncol = 3))
-    colnames(stats_temp) <- c("lower", "median", "upper")
-
-    # Get impulse-response for country
-    for (draw in seq_along(irf_list)) {
-      temp0 <- irf_list[[draw]]
-      df_temp[, draw] <- temp0[1:horizon, ncol]
-    }
-
-    # Get stats
-    stats_temp[, 1] <- apply(df_temp, 1, function(x) quantile(x, probs = 0.16))
-    stats_temp[, 2] <- apply(df_temp, 1, median)
-    stats_temp[, 3] <- apply(df_temp, 1, function(x) quantile(x, probs = 0.84))
-
-    # Output
-    stats_df[[country]] <- stats_temp
-  }
-
-  return(stats_df)
-}
-
-IRF_country <- function(A_draw, B_draw, nblag, horizon, ci = NULL, is_cumulative = FALSE) {
+IRF_country <- function(A_draw, B_draw, nblag, horizon) {
+  # ==========================================
+  # Purpose: Computes the IRF for each country
+  # Parameters:
+  #           A_draw: matrices estimated using the MH algo
+  #           B_draw: matrices B associated with the drawn matrices A
+  #           nblag: number of lags in the model
+  #           horizon: time period on which to do the irf
+  # Returns: the irf each draw of the country
+  # ==========================================
 
   # Initialization
   irf_results <- list()
@@ -476,7 +505,8 @@ metropolis_hastings_algorithm <- function(iter, burnin,
   A_old <- A_ini
   regr <- compute_tilded_regr(A_old, X, Y, ar_omega, p = 2)
   zeta_old <- regr[[1]]
-  A_old_post <- posterior_A(A_old, X, Y, kappa, zeta_old, omega, ar_omega, prior_spec, weight_matrix)
+  A_old_post <- posterior_A(A_old, X, Y, kappa, zeta_old, omega, ar_omega,
+                            prior_spec, weight_matrix)
 
   # Output vectors for matrices A and zeta
   output_A <- list()
@@ -493,7 +523,8 @@ metropolis_hastings_algorithm <- function(iter, burnin,
     zeta_new <- regr[[1]]
 
     # Compute posterior of new matrix
-    A_new_post <- posterior_A(A_new, X, Y, kappa, zeta_new, omega, ar_omega, prior_spec, weight_matrix)
+    A_new_post <- posterior_A(A_new, X, Y, kappa, zeta_new, omega, ar_omega,
+                              prior_spec, weight_matrix)
 
     # Iteration of MH algorithm
     acceptance <- exp(A_new_post - A_old_post) # Acceptance probability
