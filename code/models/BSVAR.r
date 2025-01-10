@@ -56,23 +56,90 @@ bs_main <- function(svar_model, prior_specifications, weight_matrix) {
   # Draw matrices B
   B_draw <- draw_B(A_revised, X, Y, ar_omega, p = 2)
 
-  return(B_draw[[1]])
+  test <- IRF_preprocessing(A_revised, B_draw, weight_matrix)
+
+  return(test)
 }
 
-IRF <- function() {
-    # Launch IRF estimations (needs horizon, all matrices A and B, interval and if it is cumulative)
-  # Two sets of IRF: real GDP growth on precipitation or temperature shocks
+IRF_preprocessing <- function(A,B,wm) { 
+
+  countries <- as.character(row.names(wm))
+
+  for (country in countries) {
+
+    A_i <- list()
+    B_i <- list()
+
+    c <- 1
+    c2 <- 1
+
+    for (i in seq_along(A)) {
+      A_temp <- A[[i]]
+      B_temp <- B[[i]]
+
+      A_i[[i]] <- A_temp[c:(c+2), c:(c+2)]
+      B_i[[i]] <- B_temp[c:(c+2), c2:(c2+7)]
+        dimnames(A_i[[i]]) <- list(
+    rownames(A_temp)[c:(c+2)],
+    colnames(A_temp)[c:(c+2)]
+  )
+    }
+
+    #Ligne pour lancer l'IRF (voir C)
+    test <- IRF(A_i, B_i, 5, FALSE)
+
+    c <- c + 3
+    c2 <- c2 + 8
+
+    return(A_i[[1]])
+
+  }
+}
+
+
+IRF <- function(A_draw, B_draw, horizon, is_cumulative = FALSE) { # Launch IRF estimations (needs horizon, all matrices A and B, interval and if it is cumulative)
+  # Initialization
+  irf_results <- list()
+  #Two sets of IRF: real GDP growth on precipitation or temperature shocks
   # Steps:
+    #For each country, boucle sur le nombre de tirages
+    
     # loop on number of draws
-    # Compute H and Phi (B*H) because we are in the case of eq (11)
-    # Compute IRF (see method in code)
-    # Case if the IRF function is cumulative
-    # Store IRF
+     for (i in seq_along(A_draw)) {
+    A <- A_draw[[i]]
+    B <- B_draw[[i]]
+    # Compute H and Pi (B*H) because we are in the case of eq (11)
+    H <- solve(A)
+    Pi <- H %*% B
+    colnames(Pi) <- colnames(B)
+    # Compute IRF (see method in code): 
+    # Initialization for every horizon: 
+    # irf_temp <- matrix(0, nrow = nrow(A), ncol = horizon + 1)
+    # shock <- diag(D)
+  
+    # irf_temp[, 1] <- H %*% shock
+    # # Propagation sur tous les horizons
+    # for (h in 1:horizon) {
+    #   Pi_h <- shock %*% Pi 
+    #   # irf_temp[, h + 1] <- t(Pi_h)
+    #   # Pi <- Pi %*% B  #
+    # }
+    # # Case if the IRF function is cumulative
+    # if (is_cumulative) {
+    #   irf_temp <- t(apply(irf_temp, 1, cumsum))
+    # }
+    # # Store IRF
+    #  irf_results[[i]] <- irf_temp
+  }
     # Once the loop for the country has ended -> compute lower, upper bound (depending on CI) and median
     # Should output: for each country, for each time period: lower and upper bound + median
 
   # Plot IRF + make a map for better visualisation
+#library (ggplot2)
+#horizon <- 10
+#irf_var1 <- sapply(results, , )
 
+return(Pi)
 
 }
 
